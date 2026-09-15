@@ -125,14 +125,6 @@ func createMockPoolWithCPUs(cpuIDs []uint) *poolMock {
 	return pm
 }
 
-func (m *poolMock) SetCStates(states power.CStates) error {
-	return m.Called(states).Error(0)
-}
-
-func (m *poolMock) Clear() error {
-	return m.Called().Error(0)
-}
-
 func (m *poolMock) Name() string {
 	return m.Called().String(0)
 }
@@ -143,10 +135,6 @@ func (m *poolMock) Cpus() *power.CPUList {
 		return nil
 	}
 	return args.(*power.CPUList)
-}
-
-func (m *poolMock) SetCpus(cores power.CPUList) error {
-	return m.Called(cores).Error(0)
 }
 
 func (m *poolMock) SetCPUIDs(cpuIDs []uint) error {
@@ -208,10 +196,6 @@ type coreMock struct {
 	power.CPU
 }
 
-func (m *coreMock) SetCStates(cStates power.CStates) error {
-	return m.Called(cStates).Error(0)
-}
-
 func (m *coreMock) GetID() uint {
 	args := m.Called()
 	return args.Get(0).(uint)
@@ -220,10 +204,6 @@ func (m *coreMock) GetID() uint {
 func (m *coreMock) GetAbsMinMax() (uint, uint) {
 	args := m.Called()
 	return args.Get(0).(uint), args.Get(1).(uint)
-}
-
-func (m *coreMock) SetPool(pool power.Pool) error {
-	return m.Called(pool).Error(0)
 }
 
 type mockCPUTopology struct {

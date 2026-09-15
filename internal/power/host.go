@@ -18,6 +18,12 @@ type hostImpl struct {
 	sharedPool     Pool
 	topology       Topology
 	featureStates  *FeatureSet
+
+	// hostMutex serializes pool membership and power-profile updates for the host.
+	// Entry points for those operations acquire it exactly once. Their internal
+	// helpers assume it is already held and must not acquire it themselves. See
+	// CONCURRENCY.md for the package locking rules.
+	hostMutex sync.Locker
 }
 
 // Host represents the actual machine to be managed
@@ -44,6 +50,19 @@ type Host interface {
 	Topology() Topology
 	// returns number of distinct core types
 	NumCoreTypes() uint
+
+	getHostMutex() sync.Locker
+}
+
+// lockHostMutex acquires the host mutex at the boundary of a pool mutation.
+// Internal mutation helpers must not call it.
+func lockHostMutex(mutex sync.Locker, keysAndValues ...interface{}) func() {
+	log.V(4).Info("host mutex lock", keysAndValues...)
+	mutex.Lock()
+	return func() {
+		mutex.Unlock()
+		log.V(4).Info("host mutex unlock", keysAndValues...)
+	}
 }
 
 // create a pre-populated Host object
@@ -51,6 +70,7 @@ func initHost(nodeName string) (Host, error) {
 
 	host := &hostImpl{
 		name:           nodeName,
+		hostMutex:      &sync.Mutex{},
 		exclusivePools: PoolList{},
 	}
 	host.featureStates = &featureList
@@ -64,15 +84,13 @@ func initHost(nodeName string) (Host, error) {
 
 	// create predefined pools
 	host.reservedPool = &reservedPoolType{poolImpl{
-		name:  reservedPoolName,
-		mutex: &sync.Mutex{},
-		host:  host,
+		name: reservedPoolName,
+		host: host,
 	}}
 	host.sharedPool = &sharedPoolType{poolImpl{
-		name:  sharedPoolName,
-		cpus:  CPUList{},
-		mutex: &sync.Mutex{},
-		host:  host,
+		name: sharedPoolName,
+		cpus: CPUList{},
+		host: host,
 	}}
 
 	topology, err := discoverTopology(host.architecture)
@@ -105,6 +123,10 @@ func (host *hostImpl) GetName() string {
 
 func (host *hostImpl) GetReservedPool() Pool {
 	return host.reservedPool
+}
+
+func (host *hostImpl) getHostMutex() sync.Locker {
+	return host.hostMutex
 }
 
 func (host *hostImpl) SetArchitecture() error {
@@ -159,14 +181,16 @@ func (host *hostImpl) GetFreqRanges() CoreTypeList {
 
 // AddExclusivePool creates new empty pool
 func (host *hostImpl) AddExclusivePool(poolName string) (Pool, error) {
+	unlock := lockHostMutex(host.hostMutex, "pool", poolName)
+	defer unlock()
+
 	if i := host.exclusivePools.IndexOfName(poolName); i >= 0 {
 		return host.exclusivePools[i], fmt.Errorf("pool with name %s already exists", poolName)
 	}
 	var pool Pool = &exclusivePoolType{poolImpl{
-		name:  poolName,
-		mutex: &sync.Mutex{},
-		cpus:  make([]CPU, 0),
-		host:  host,
+		name: poolName,
+		cpus: make([]CPU, 0),
+		host: host,
 	}}
 
 	host.exclusivePools.add(pool)
