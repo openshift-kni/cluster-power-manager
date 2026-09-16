@@ -21,10 +21,11 @@
 #
 # PR skip detection (evaluated in order):
 #   1. Manual skip list    - SKIP_PRS / SKIP_COMMITS env vars
-#   2. Automatic detection - PRs whose changed files do not exist in the
-#                            downstream branch are skipped (zero config).
-#   3. Ignore patterns     - If .upstream-sync-ignore exists, PRs that
+#   2. Ignore patterns     - If .upstream-sync-ignore exists, PRs that
 #                            exclusively modify matching paths are skipped.
+#   3. Automatic detection - PRs whose changed files all existed at the
+#                            merge base and were deleted downstream are skipped
+#                            (zero config). New upstream files are included.
 #
 # In CI, this script is run by the upstream-sync GitHub Actions workflow
 # which provides GH_TOKEN automatically via GITHUB_TOKEN.
@@ -112,7 +113,8 @@ BUG_PATTERN="${BUG_PATTERN:-(OCPBUGS|CNF)-[0-9]+}"
 REVIEWERS="${REVIEWERS:-}"
 SKIP_PRS="${SKIP_PRS:-}"
 SKIP_COMMITS="${SKIP_COMMITS:-}"
-SYNC_IGNORE_FILE="${SYNC_IGNORE_FILE:-.upstream-sync-ignore}"
+REPO_ROOT=$(git rev-parse --show-toplevel)
+SYNC_IGNORE_FILE="${SYNC_IGNORE_FILE:-${REPO_ROOT}/.upstream-sync-ignore}"
 
 # Jira configuration (set JIRA_BASE_URL="" to disable Jira scanning)
 JIRA_BASE_URL="${JIRA_BASE_URL:-https://redhat.atlassian.net}"
@@ -228,39 +230,12 @@ collect_upstream_prs() {
 should_skip_pr() {
   local pr_number="$1"
   local changed_files
-  changed_files=$(gh api "repos/${UPSTREAM_REPO}/pulls/${pr_number}/files" \
+  changed_files=$(gh api --paginate \
+    "repos/${UPSTREAM_REPO}/pulls/${pr_number}/files?per_page=100" \
     --jq '.[].filename' 2>/dev/null) || return 1
 
   if [ -z "$changed_files" ]; then
     return 1
-  fi
-
-  # TODO(cluster-power-manager): This auto-skip heuristic checks against the
-  # CURRENT downstream HEAD, so it cannot tell "downstream intentionally deleted
-  # this file" (skip is correct) apart from "upstream just added a brand-new file
-  # since the merge base" (skip is WRONG — we want new upstream files). It only
-  # misfires on add-only PRs (PRs touching nothing that already exists
-  # downstream); mixed PRs survive because any one existing file flips the flag.
-  # This heuristic only earns its keep if downstream deletes upstream files; if
-  # this repo stays purely additive (only adds downstream-only files, never
-  # deletes upstream ones), it has little upside and can silently drop wanted
-  # add-only PRs. That divergence model isn't settled yet — revisit once it is.
-  # Options: (a) keep it and catch drops in PR review via the "Skipped PRs"
-  # list, or (b) disable this branch and rely on manual SKIP_PRS. A smarter fix
-  # would compare against the merge base rather than current HEAD to actually
-  # distinguish a downstream deletion from a new-upstream-file.
-  local any_exists_downstream=false
-  while IFS= read -r file; do
-    [ -z "$file" ] && continue
-    if git cat-file -e "${DOWNSTREAM_REMOTE}/${DOWNSTREAM_BRANCH}:${file}" 2>/dev/null; then
-      any_exists_downstream=true
-      break
-    fi
-  done <<< "$changed_files"
-
-  if [ "$any_exists_downstream" = false ]; then
-    echo "all changed files are upstream-only (not present downstream)"
-    return 0
   fi
 
   local ignore_file="$SYNC_IGNORE_FILE"
@@ -287,6 +262,31 @@ should_skip_pr() {
       echo "all changed files match ignore patterns"
       return 0
     fi
+  fi
+
+  # A path absent from the current downstream branch is only evidence of an
+  # intentional downstream deletion when that path existed at the merge base.
+  # Paths absent at the merge base are new upstream files and must be kept.
+  # The decision is deliberately whole-PR: mixed PRs are kept intact rather
+  # than partially filtering their files.
+  local all_deleted_downstream=true
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    # Absent at the merge base means this is new upstream content.
+    if ! git cat-file -e "${MERGE_BASE}:${file}" 2>/dev/null; then
+      all_deleted_downstream=false
+      break
+    fi
+    # Present downstream means this path was not deleted downstream.
+    if git cat-file -e "${DOWNSTREAM_REMOTE}/${DOWNSTREAM_BRANCH}:${file}" 2>/dev/null; then
+      all_deleted_downstream=false
+      break
+    fi
+  done <<< "$changed_files"
+
+  if [ "$all_deleted_downstream" = true ]; then
+    echo "all changed files existed at merge base but were deleted downstream"
+    return 0
   fi
 
   return 1
@@ -778,4 +778,6 @@ main() {
   log "Upstream sync complete"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

@@ -1,0 +1,12 @@
+# Paths intentionally owned or excluded by the downstream repository.
+# An upstream PR is skipped only when every changed path matches this file.
+
+# GitHub Actions CI will be replaced by downstream Prow jobs.
+.github/workflows/ci.yaml
+
+# Downstream sync and repository governance files.
+.upstream-sync-ignore
+hack/upstream-sync.sh
+hack/upstream-sync_test.sh
+OWNERS
+OWNERS_ALIASES
