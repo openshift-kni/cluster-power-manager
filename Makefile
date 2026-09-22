@@ -1,9 +1,9 @@
 export PROJECT_NAME=cluster-power-manager
 CPM_NAMESPACE ?= power-manager
 # Image tag version
-VERSION ?= latest
+VERSION ?= 5.1.0
 # OLM bundle version (semver, without 'v' prefix)
-BUNDLE_VERSION ?= 0.0.1
+BUNDLE_VERSION ?= 5.1.0
 # parameter used for helm chart image
 HELM_CHART ?= v2.5.0
 HELM_VERSION := $(shell echo $(HELM_CHART) | cut -d "v" -f2)
@@ -30,7 +30,7 @@ ENVTEST_VERSION ?= release-0.21
 # used to detemine if certain targets should build for openshift
 OCP ?= false
 
-IMAGE_REGISTRY ?= ghcr.io/cluster-power-manager
+IMAGE_REGISTRY ?= quay.io/openshift-kni
 
 IMAGE_NAME ?= cluster-power-manager-operator
 IMAGE_NAME_AGENT ?= cluster-power-node-agent
