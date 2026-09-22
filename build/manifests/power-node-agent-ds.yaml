@@ -19,7 +19,7 @@ spec:
       tolerations:
         - operator: Exists
       containers:
-        - image: ghcr.io/cluster-power-manager/cluster-power-node-agent:latest
+        - image: quay.io/openshift-kni/cluster-power-node-agent:5.1.0
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true

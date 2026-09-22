@@ -84,7 +84,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-  name: cluster-power-manager.v0.0.1
+  name: cluster-power-manager.v5.1.0
   namespace: power-manager
 spec:
   apiservicedefinitions: {}
@@ -150,4 +150,4 @@ spec:
   provider:
     name: Red Hat
     url: https://github.com/cluster-power-manager/cluster-power-manager
-  version: 0.0.1
+  version: 5.1.0
