@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -212,6 +212,8 @@ func (c *dpdkTelemetryConnection) connect(ctx context.Context) {
 
 func (c *dpdkTelemetryConnection) connectLoop(ctx context.Context) net.Conn {
 	address := fmt.Sprintf(baseSocketPath, c.podUID)
+	loggedWait := false
+	loggedUnexpected := false
 
 	for {
 		select {
@@ -220,11 +222,20 @@ func (c *dpdkTelemetryConnection) connectLoop(ctx context.Context) net.Conn {
 		case <-time.After(retryDuration):
 			conn, err := connectWithTimeoutFunc(address, ioTimeout)
 			if err == nil {
-				c.log.V(4).Info("connection opened")
+				c.log.Info("connected to dpdk telemetry socket")
 				return conn
 			}
-			if strings.Contains(err.Error(), "no such file or directory") {
-				c.log.Error(err, "dpdk telemetry socket not found")
+			// Socket file not created yet; other errors are still retried but logged as failures.
+			if errors.Is(err, os.ErrNotExist) {
+				if !loggedWait {
+					c.log.Info("waiting for dpdk telemetry socket to become available", "socket", address)
+					loggedWait = true
+				}
+				continue
+			}
+			if !loggedUnexpected {
+				c.log.Error(err, "failed to connect to dpdk telemetry socket")
+				loggedUnexpected = true
 			}
 		}
 	}

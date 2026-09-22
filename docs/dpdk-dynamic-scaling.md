@@ -92,9 +92,10 @@ Then apply filters and limits:
 2. Launch the example DPDK server/client pair:
 
     ```console
-    ./testbin/dpdk-testapp.sh [--non-siblings] [--replicas N]
+    KUBE_CLI=kubectl ./testbin/dpdk-testapp.sh [--non-siblings] [--replicas N]
     ```
 
+    - The script uses `kubectl` by default. Set `KUBE_CLI=oc` to use the OpenShift CLI instead.
     - The script deploys [examples/example-dpdk-testapp.yaml](../examples/example-dpdk-testapp.yaml) and starts two `dpdk-testpmd` instances in each pod: a client (traffic generator) and a server (receiver/forwarder). The scaler manages the CPUs assigned to the server container.
     - If Hyper-Threading is enabled, pass `--non-siblings` to pin the server to one logical CPU per physical core. If HT is disabled, omit the flag.
     - To launch multiple DPDK pods, pass `--replicas N` (default: 1). Each pod gets its own DPDK telemetry connection and CPU scaling.
@@ -104,15 +105,16 @@ Then apply filters and limits:
     ```sh
     # On the target node:
     export KUBECONFIG=<path-to-kubeconfig>
+    KUBE_CLI=kubectl  # set KUBE_CLI=oc on OpenShift
     NODE=$(hostname)
     POD="<pod-name>"
-    CPUS=$(oc get powernodestate "$NODE-power-state" -n power-manager -o jsonpath="{range .status.cpuPools.exclusive[?(@.pod==\"$POD\")]}{range .powerContainers[?(@.name==\"server\")]}{.cpuIDs}{end}{end}" | tr -d '[]')
-    PODID=$(oc get powernodestate "$NODE-power-state" -n power-manager -o jsonpath="{range .status.cpuPools.exclusive[?(@.pod==\"$POD\")]}{.podUID}{end}")
+    CPUS=$("$KUBE_CLI" get powernodestate "$NODE-power-state" -n power-manager -o jsonpath="{range .status.cpuPools.exclusive[?(@.pod==\"$POD\")]}{range .powerContainers[?(@.name==\"server\")]}{.cpuIDs}{end}{end}" | tr -d '[]')
+    PODID=$("$KUBE_CLI" get powernodestate "$NODE-power-state" -n power-manager -o jsonpath="{range .status.cpuPools.exclusive[?(@.pod==\"$POD\")]}{.podUID}{end}")
     ./cpmon.py --cpu "$CPUS" --dpdk-pod-uid "$PODID" [--no-siblings] [--scroll]
     ```
 
 4. To tear down the DPDK test app:
 
     ```console
-    ./testbin/dpdk-testapp.sh -d
+    KUBE_CLI=kubectl ./testbin/dpdk-testapp.sh -d
     ```

@@ -3,6 +3,16 @@
 set -o errexit
 set -o pipefail
 
+KUBE_CLI="${KUBE_CLI:-kubectl}"
+if [[ "$KUBE_CLI" != "kubectl" && "$KUBE_CLI" != "oc" ]]; then
+    echo "ERROR: KUBE_CLI must be set to kubectl or oc" >&2
+    exit 1
+fi
+if ! command -v "$KUBE_CLI" >/dev/null 2>&1; then
+    echo "ERROR: CLI executable '$KUBE_CLI' was not found in PATH" >&2
+    exit 1
+fi
+
 # When enabled, pin server and client to non-sibling CPUs.
 # When disabled (default), use all CPUs listed in the PowerNode CR (e.g., HT disabled scenarios).
 NON_SIBLINGS=false
@@ -62,16 +72,39 @@ function wait_for_container_cpus {
             exit 1
         fi
         local raw
-        raw=$(oc get powernodestate "${node}-power-state" -n power-manager -o \
+        raw=$("$KUBE_CLI" get powernodestate "${node}-power-state" -n power-manager -o \
             jsonpath="{range .status.cpuPools.exclusive[?(@.pod==\"${pod_name}\")]}{range .powerContainers[?(@.name==\"${container_name}\")]}{.cpuIDs}{end}{end}" 2>/dev/null)
         if [ -n "$raw" ]; then
             cpus=$(expand_cpu_ranges "$(echo "$raw" | tr -d '[] ')")
         fi
         if [ -n "$cpus" ]; then break; fi
-        echo "PowerNodeState not yet updated ($container_name for $pod_name). Retrying..."
+        echo "PowerNodeState not yet updated ($container_name for $pod_name). Retrying..." >&2
         sleep 2
     done
     echo "$cpus"
+}
+
+# wait_for_testpmd_prompt waits until the tmux pane shows the interactive prompt.
+function wait_for_testpmd_prompt {
+    local pod="$1"
+    local container="$2"
+    local session="$3"
+    local attempts=0
+    local max_attempts=30
+    while true; do
+        local pane
+        pane=$("$KUBE_CLI" exec -n power-manager "$pod" -c "$container" -- tmux capture-pane -pt "$session" 2>&1) || true
+        if grep -q 'testpmd>' <<<"$pane"; then
+            return 0
+        fi
+        if (( attempts++ >= max_attempts )); then
+            echo "ERROR: $session testpmd did not reach the prompt in $pod/$container" >&2
+            echo "  --- tmux $session ($pod/$container) ---" >&2
+            echo "$pane" >&2
+            return 1
+        fi
+        sleep 1
+    done
 }
 
 # setup_dpdk_for_pod starts the DPDK server and client processes on a single pod.
@@ -92,56 +125,60 @@ function setup_dpdk_for_pod {
     client_cpus=$(build_lcore_map "$client_list")
     local client_cpus_num=$(($(echo "$client_cpus" | grep -o '@' | wc -l) - 1))
 
-    # Server receives traffic, updates checksums and forwards packets back to client
-    echo "  Starting server (CPUs: $server_cpus)..."
-    oc exec -n power-manager "$pod" -c server -- \
-        tmux new-session -s server -d "dpdk-testpmd --no-pci --lcores $server_cpus --file-prefix=rte \
-        --huge-dir=\"/hugepages-1Gi\" \
-        --vdev=\"net_memif0,role=server,socket=/var/run/memif/memif1.sock\" -- \
-        --rxq=$server_cpus_num --txq=$server_cpus_num --nb-cores=$server_cpus_num \
-        --interactive --rss-udp --forward-mode=csum --record-core-cycles --record-burst-stats"
-    sleep 1
+    # Unique per replica: DPDK memif uses abstract sockets in the netns, and
+    # hostNetwork pods share the host netns (emptyDir does not isolate them).
+    local memif_sock="/var/run/memif/memif-$(echo "$pod" | cksum | awk '{print $1}').sock"
 
-    # Client generates traffic and transmits to server
+    echo "  Starting server (CPUs: $server_cpus)..."
+    # exec bash keeps the session if testpmd exits so the pane still shows the EAL error.
+    local server_cmd="dpdk-testpmd --no-pci --lcores $server_cpus --file-prefix=rte \
+        --huge-dir=/hugepages-1Gi \
+        --vdev=net_memif0,role=server,socket=${memif_sock} -- \
+        --rxq=$server_cpus_num --txq=$server_cpus_num --nb-cores=$server_cpus_num \
+        --interactive --rss-udp --forward-mode=csum --record-core-cycles --record-burst-stats; exec bash"
+    "$KUBE_CLI" exec -n power-manager "$pod" -c server -- tmux new-session -d -s server "$server_cmd"
+    wait_for_testpmd_prompt "$pod" server server
+
     echo "  Starting client (CPUs: $client_cpus)..."
-    oc exec -n power-manager "$pod" -c client -- \
-        tmux new-session -s client -d "dpdk-testpmd --no-pci --lcores $client_cpus --file-prefix=client \
-        --huge-dir=\"/hugepages-1Gi\" \
-        --vdev=\"net_memif0,role=client,socket=/var/run/memif/memif1.sock\" -- \
+    local client_cmd="dpdk-testpmd --no-pci --lcores $client_cpus --file-prefix=client \
+        --huge-dir=/hugepages-1Gi \
+        --vdev=net_memif0,role=client,socket=${memif_sock} -- \
         --rxq=$server_cpus_num --txq=$server_cpus_num --nb-cores=$client_cpus_num \
-        --interactive --rss-udp --forward-mode=txonly"
+        --interactive --rss-udp --forward-mode=txonly; exec bash"
+    "$KUBE_CLI" exec -n power-manager "$pod" -c client -- tmux new-session -d -s client "$client_cmd"
+    wait_for_testpmd_prompt "$pod" client client
 
     # Push heavier traffic from the client
-    oc exec -n power-manager "$pod" -c client -- tmux send-keys -t client "set burst 512" C-m
+    "$KUBE_CLI" exec -n power-manager "$pod" -c client -- tmux send-keys -t client "set burst 512" C-m
     # Start packet generation from client
-    oc exec -n power-manager "$pod" -c client -- tmux send-keys -t client "start" C-m
+    "$KUBE_CLI" exec -n power-manager "$pod" -c client -- tmux send-keys -t client "start" C-m
     # Start packet processing from server
-    oc exec -n power-manager "$pod" -c server -- tmux send-keys -t server "start" C-m
+    "$KUBE_CLI" exec -n power-manager "$pod" -c server -- tmux send-keys -t server "start" C-m
     echo "  Pod $pod deployed successfully"
 }
 
 function setup_dpdk_testapp {
-    oc apply -f examples/example-dpdk-testapp.yaml
+    "$KUBE_CLI" apply -f examples/example-dpdk-testapp.yaml
 
     if [ "$REPLICAS" -ne 1 ]; then
-        oc scale -n power-manager deployment/dpdk-testapp --replicas="$REPLICAS"
+        "$KUBE_CLI" scale -n power-manager deployment/dpdk-testapp --replicas="$REPLICAS"
     fi
 
     # Wait until all replicas are ready.
-    oc wait -n power-manager \
+    "$KUBE_CLI" wait -n power-manager \
         --for=jsonpath='{.status.readyReplicas}'="$REPLICAS" \
         --timeout=180s deployment/dpdk-testapp
 
     # Wait for all pods to be running.
-    PODS=$(oc get pods -n power-manager -l app=dpdk-testapp \
+    PODS=$("$KUBE_CLI" get pods -n power-manager -l app=dpdk-testapp \
         -ojsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
     for POD in $PODS; do
-        oc wait --for=jsonpath='{.status.phase}'=Running pod/"$POD" -n power-manager --timeout=120s
+        "$KUBE_CLI" wait --for=jsonpath='{.status.phase}'=Running pod/"$POD" -n power-manager --timeout=120s
     done
 
     # Start DPDK processes on each pod.
     for POD in $PODS; do
-        NODE=$(oc get pod "$POD" -n power-manager -ojsonpath='{.spec.nodeName}')
+        NODE=$("$KUBE_CLI" get pod "$POD" -n power-manager -ojsonpath='{.spec.nodeName}')
         setup_dpdk_for_pod "$POD" "$NODE"
     done
 
@@ -149,14 +186,14 @@ function setup_dpdk_testapp {
 }
 
 function delete_dpdk_testapp {
-    oc delete -f examples/example-dpdk-testapp.yaml --ignore-not-found=true
+    "$KUBE_CLI" delete -f examples/example-dpdk-testapp.yaml --ignore-not-found=true
 
     # Wait for the deployment to be deleted if it exists
-    oc wait -n power-manager --for=delete deployment/dpdk-testapp --timeout=120s || true
+    "$KUBE_CLI" wait -n power-manager --for=delete deployment/dpdk-testapp --timeout=120s || true
 
     echo "Waiting for dpdk-testapp pods to terminate..."
     for i in {1..60}; do
-        if [ -z "$(oc get pods -n power-manager -l app=dpdk-testapp --no-headers 2>/dev/null | awk 'NF>0{print}' | head -n1)" ]; then
+        if [ -z "$("$KUBE_CLI" get pods -n power-manager -l app=dpdk-testapp --no-headers 2>/dev/null | awk 'NF>0{print}' | head -n1)" ]; then
             echo "All dpdk-testapp pods terminated."
             break
         fi
