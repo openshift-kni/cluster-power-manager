@@ -166,14 +166,17 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-.PHONY: all test build images images-ocp build-push-images build-push-images-ocp run
+.PHONY: all test test-upstream-sync build images images-ocp build-push-images build-push-images-ocp run
 
 all: manifests generate install
 
 # Run tests
 ENVTEST_ASSETS_DIR = $(shell pwd)/testbin
-test: generate fmt vet manifests test-envtest
+test: generate fmt vet manifests test-envtest test-upstream-sync
 	go test -v ./... -coverprofile cover.out
+
+test-upstream-sync:
+	bash hack/upstream-sync_test.sh
 
 # Run envtest integration tests (requires real API server via envtest, excluded from regular test runs via build tag)
 .PHONY: test-envtest
