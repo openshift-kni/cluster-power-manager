@@ -1,11 +1,12 @@
 ARG BUILDER_IMAGE=quay.io/projectquay/golang:1.24
 ARG RUNTIME_IMAGE=scratch
+ARG STRICTFIPS="false"
 
 # Build the manager binary
 FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS builder
 ARG TARGETOS \
     TARGETARCH
-ARG STRICTFIPS="false"
+ARG STRICTFIPS
 
 # Go toolchain settings, consumed directly by the go command. The defaults
 # produce a static binary suitable for the default scratch BASE_IMAGE.
