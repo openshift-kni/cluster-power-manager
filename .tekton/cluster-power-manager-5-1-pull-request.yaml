@@ -71,6 +71,7 @@ spec:
     - name: additional-labels
       value:
         - name=openshift5/cluster-power-manager-rhel9-operator
+        - com.redhat.component=cluster-power-manager-rhel9-operator-container
   pipelineRef:
     name: build-pipeline
   taskRunTemplate:
