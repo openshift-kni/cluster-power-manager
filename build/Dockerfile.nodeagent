@@ -1,10 +1,11 @@
-ARG BASE_IMAGE=registry.fedoraproject.org/fedora-minimal:42
 ARG BUILDER_IMAGE=quay.io/projectquay/golang:1.24
+ARG RUNTIME_IMAGE=registry.access.redhat.com/ubi9-minimal:latest
 
-# Build the node agent binary
+# Build the nodeagent binary
 FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS builder
 ARG TARGETOS \
     TARGETARCH
+ARG KONFLUX="false"
 
 # Go toolchain settings, consumed directly by the go command. The defaults
 # produce a static binary suitable for the default fedora-minimal BASE_IMAGE.
@@ -28,19 +29,23 @@ COPY controllers/ controllers/
 COPY pkg/ pkg/
 COPY internal/ internal/
 
-# Create non-root user
-RUN mkdir -p /install_root/etc \
-    && groupadd -g 1099 "cpm" \
-    && useradd -g "cpm" -u 10001 -s /sbin/nologin power-node-agent \
-    && tail -1 /etc/passwd > /install_root/etc/passwd
+# Create user
+RUN mkdir -p /install_root/etc && groupadd -g 1099 "cpm" && useradd -g "cpm" -u 10001 -s /sbin/nologin power-node-agent && tail -1 /etc/passwd > /install_root/etc/passwd
 
 # Build
-RUN GO111MODULE=on GOOS=${TARGETOS:-linux} GOARCH=$TARGETARCH go build -a -o /install_root/nodeagent ./main.go
+RUN if [[ "${KONFLUX}" == "true" ]]; then \
+        GOEXPERIMENT=strictfipsruntime CGO_ENABLED=1 GOOS=${TARGETOS:-linux} GOARCH=$TARGETARCH GO111MODULE=on go build -tags strictfipsruntime -a -o /install_root/nodeagent ./main.go; \
+    else \
+        CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=$TARGETARCH GO111MODULE=on go build -a -o /install_root/nodeagent ./main.go; \
+    fi
 
-FROM ${BASE_IMAGE}
+FROM ${RUNTIME_IMAGE}
 WORKDIR /
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /install_root .
+RUN microdnf -y install util-linux-core && \
+    microdnf clean all && \
+    rm -rf /var/cache/yum
 USER 10001
 
 ENTRYPOINT ["/nodeagent"]
