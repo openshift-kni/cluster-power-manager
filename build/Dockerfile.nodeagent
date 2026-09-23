@@ -1,9 +1,6 @@
 ARG BUILDER_IMAGE=quay.io/projectquay/golang:1.24
 ARG RUNTIME_IMAGE=registry.fedoraproject.org/fedora-minimal:42
 
-# Source for the lscpu binary - TARGETPLATFORM architecture
-FROM ${BUILDER_IMAGE} AS lscpu-source
-
 # Build the manager binary
 FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS builder
 ARG TARGETOS \
@@ -38,7 +35,6 @@ FROM ${RUNTIME_IMAGE}
 WORKDIR /
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /install_root .
-COPY --from=lscpu-source /usr/bin/lscpu /usr/bin/lscpu
 RUN microdnf -y install util-linux-core && \
     microdnf clean all && \
     rm -rf /var/cache/yum
