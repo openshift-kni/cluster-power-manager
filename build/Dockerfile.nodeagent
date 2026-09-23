@@ -39,6 +39,9 @@ WORKDIR /
 COPY LICENSE /licenses/LICENSE
 COPY --from=builder /install_root .
 COPY --from=lscpu-source /usr/bin/lscpu /usr/bin/lscpu
+RUN microdnf -y install util-linux-core && \
+    microdnf clean all && \
+    rm -rf /var/cache/yum
 USER 10001
 
 ENTRYPOINT ["/nodeagent"]
