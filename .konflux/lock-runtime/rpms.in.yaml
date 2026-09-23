@@ -1,0 +1,42 @@
+---
+arches:
+  - x86_64
+  - aarch64
+contentOrigin:
+  # Repos defined in this list must exactly match the repos defined in the conforma configuration
+  # See https://github.com/release-engineering/rhtap-ec-policy/blob/main/data/known_rpm_repositories.yml
+  repos:
+    - repoid: ubi-9-for-$basearch-appstream-rpms
+      name: Red Hat Universal Base Image 9 for $basearch - AppStream (RPMs)
+      baseurl: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/appstream/os
+      enabled: "1"
+      gpgcheck: "1"
+      gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+      sslverify: "1"
+      sslverifystatus: "1"
+      metadata_expire: "86400"
+      enabled_metadata: "1"
+    - repoid: ubi-9-for-$basearch-baseos-rpms
+      name: Red Hat Universal Base Image 9 for $basearch - BaseOS (RPMs)
+      baseurl: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/baseos/os
+      enabled: "1"
+      gpgcheck: "1"
+      gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+      sslverify: "1"
+      sslverifystatus: "1"
+      metadata_expire: "86400"
+      enabled_metadata: "1"
+    - repoid: codeready-builder-for-ubi-9-$basearch-rpms
+      name: Red Hat CodeReady Linux Builder for UBI 9 $basearch (RPMs)
+      baseurl: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/$basearch/codeready-builder/os/
+      enabled: "1"
+      gpgcheck: "1"
+      gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+      sslverify: "1"
+      sslverifystatus: "1"
+      metadata_expire: "86400"
+      enabled_metadata: "1"
+packages:
+  - util-linux-core
+context:
+  containerfile: Dockerfile.mintmaker
