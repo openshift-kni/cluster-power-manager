@@ -258,18 +258,18 @@ spec:
           value:
             - $(tasks.generate-labels.results.labels[*])
             - $(params.additional-labels[*])
-            - com.redhat.component=lifecycle-agent-operator-container
-            - description=lifecycle-agent
+            - com.redhat.component=cluster-power-manager-operator-container
+            - description=cluster-power-manager
             - distribution-scope=public
-            - io.k8s.description=lifecycle-agent
+            - io.k8s.description=cluster-power-manager
             - release=5.1
             - cpe=cpe:/a:redhat:openshift:5.1::el9
-            - url=https://github.com/openshift-kni/lifecycle-agent
+            - url=https://github.com/openshift-kni/cluster-power-manager
             - vendor=Red Hat, Inc.
-            - io.k8s.display-name=lifecycle-agent
+            - io.k8s.display-name=cluster-power-manager
             - io.openshift.tags=operator
-            - summary=lifecycle-agent
-            - maintainer=rauherna@redhat.com,sskeard@redhat.com
+            - summary=cluster-power-manager
+            - maintainer=agilgado@redhat.com
         - name: BUILDAH_FORMAT
           value: $(params.buildah-format)
         - name: HTTP_PROXY

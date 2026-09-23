@@ -177,12 +177,12 @@ spec:
       - "--migrate-level=bundle-object-to-csv-metadata"
       - ".konflux/catalog/catalog-template.in.yaml"
     - name: OPM_OUTPUT_PATH
-      value: ".konflux/catalog/lifecycle-agent/catalog.json"
+      value: ".konflux/catalog/cluster-power-manager/catalog.json"
         # replace catalog.json pullspecs with idms config
     - name: IDMS_PATH
       value: ".konflux/catalog/catalog-idms.yaml"
     - name: FILE_TO_UPDATE_PULLSPEC
-      value: ".konflux/catalog/lifecycle-agent/catalog.json"
+      value: ".konflux/catalog/cluster-power-manager/catalog.json"
     runAfter:
     - run-opm-pre-actions
     taskRef:
