@@ -258,7 +258,6 @@ spec:
           value:
             - $(tasks.generate-labels.results.labels[*])
             - $(params.additional-labels[*])
-            - com.redhat.component=cluster-power-manager-operator-container
             - description=cluster-power-manager
             - distribution-scope=public
             - io.k8s.description=cluster-power-manager
