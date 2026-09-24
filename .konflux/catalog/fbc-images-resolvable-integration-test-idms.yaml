@@ -14,5 +14,5 @@ spec:
         - registry.stage.redhat.io/openshift5/cluster-power-manager-operator-bundle
       source: registry.redhat.io/openshift5/cluster-power-manager-operator-bundle
     - mirrors:
-        - registry.stage.redhat.io/openshift5/cluster-power-manager-power-node-agent-rhel9
-      source: registry.redhat.io/openshift5/cluster-power-manager-power-node-agent-rhel9
+        - registry.stage.redhat.io/openshift5/cluster-power-manager-node-agent-rhel9
+      source: registry.redhat.io/openshift5/cluster-power-manager-node-agent-rhel9
