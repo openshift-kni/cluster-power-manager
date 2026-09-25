@@ -1,0 +1,81 @@
+---
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/nudge_renovate_config_map: namespace-wide-nudging-renovate-config
+    build.appstudio.openshift.io/repo: https://github.com/openshift-kni/cluster-power-manager?rev={{revision}}
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    pipelinesascode.tekton.dev/cancel-in-progress: "false"
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: |
+      event == "push" &&
+      target_branch == "main" &&
+      (
+        '.konflux/container_build_args.conf'.pathChanged() ||
+        '.konflux/lock-runtime/***'.pathChanged() ||
+        '.tekton/build-pipeline.yaml'.pathChanged() ||
+        '.tekton/cluster-power-manager-controller-5-1-push.yaml'.pathChanged() ||
+        'api/***'.pathChanged() ||
+        'build/Dockerfile'.pathChanged() ||
+        'build/manager/***'.pathChanged() ||
+        'build/manifests/***'.pathChanged() ||
+        'config/***'.pathChanged() ||
+        'controllers/***'.pathChanged() ||
+        'go.mod'.pathChanged() ||
+        'go.sum'.pathChanged() ||
+        'internal/***'.pathChanged() ||
+        'pkg/***'.pathChanged() ||
+        'telco5g-konflux'.pathChanged() ||
+        'telco5g-konflux/***'.pathChanged() ||
+        'vendor/***'.pathChanged()
+      )
+  creationTimestamp: null
+  labels:
+    appstudio.openshift.io/application: cluster-power-manager-5-1
+    appstudio.openshift.io/component: cluster-power-manager-controller-5-1
+    pipelines.appstudio.openshift.io/type: build
+  name: cluster-power-manager-controller-5-1-on-push
+  namespace: telco-5g-tenant
+spec:
+  params:
+    - name: git-url
+      value: '{{source_url}}'
+    - name: revision
+      value: '{{revision}}'
+    - name: output-image
+      value: quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-controller-5-1:{{revision}}
+    - name: build-platforms
+      value:
+        - linux/x86_64
+        - linux/arm64
+    - name: dockerfile
+      value: build/Dockerfile
+    - name: build-args-file
+      value: .konflux/container_build_args.conf
+    - name: hermetic
+      value: "true"
+    - name: dev-package-managers
+      value: "true"
+    - name: prefetch-input
+      value: '[{"type": "rpm", "path": ".konflux/lock-runtime/"}, {"type": "gomod", "path": "."}]'
+    - name: build-source-image
+      value: "true"
+    - name: skip-sast-coverity
+      value: "true"
+    - name: additional-tags
+      value: ["latest"]
+    - name: additional-labels
+      value:
+        - name=openshift5/cluster-power-manager-rhel9-controller
+        - com.redhat.component=cluster-power-manager-rhel9-controller-container
+  pipelineRef:
+    name: build-pipeline
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-cluster-power-manager-controller-5-1
+  workspaces:
+    - name: git-auth
+      secret:
+        secretName: '{{ git_auth_secret }}'
+status: {}

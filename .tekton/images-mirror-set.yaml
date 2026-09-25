@@ -1,0 +1,18 @@
+---
+# We use this IDMS in the Conforma tests to check for fips compliance.
+# https://github.com/konflux-ci/build-definitions/tree/main/task/fbc-fips-check-oci-ta/0.1
+apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata:
+  name: cluster-power-manager-digest-mirror-set
+spec:
+  imageDigestMirrors:
+    - mirrors:
+        - quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-controller-5-1
+      source: registry.redhat.io/openshift5/cluster-power-manager-rhel9-controller
+    - mirrors:
+        - quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-node-agent-5-1
+      source: registry.redhat.io/openshift5/cluster-power-manager-rhel9-node-agent
+    - mirrors:
+        - quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-operator-bundle-5-1
+      source: registry.redhat.io/openshift5/cluster-power-manager-operator-bundle
