@@ -1,11 +1,11 @@
 ---
 # Manager
 - key: manager
-  production: registry.redhat.io/openshift5/cluster-power-manager-rhel9-operator
-  staging: registry.stage.redhat.io/openshift5/cluster-power-manager-rhel9-operator
+  production: registry.redhat.io/openshift5/cluster-power-manager-rhel9-controller
+  staging: registry.stage.redhat.io/openshift5/cluster-power-manager-rhel9-controller
 #
 # Node Agent
 - key: node_agent
-  production: registry.redhat.io/openshift5/cluster-power-manager-node-agent-rhel9
-  staging: registry.stage.redhat.io/openshift5/cluster-power-manager-node-agent-rhel9
+  production: registry.redhat.io/openshift5/cluster-power-manager-rhel9-node-agent
+  staging: registry.stage.redhat.io/openshift5/cluster-power-manager-rhel9-node-agent
 #
