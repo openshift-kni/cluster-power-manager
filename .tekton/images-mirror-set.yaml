@@ -8,7 +8,7 @@ metadata:
 spec:
   imageDigestMirrors:
     - mirrors:
-        - quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-5-1
+        - quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-controller-5-1
       source: registry.redhat.io/openshift5/cluster-power-manager-rhel9-controller
     - mirrors:
         - quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-node-agent-5-1
