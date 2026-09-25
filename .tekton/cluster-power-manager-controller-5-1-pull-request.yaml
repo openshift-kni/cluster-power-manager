@@ -33,7 +33,7 @@ metadata:
       )
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: cluster-power-manager-controller-5-1
+    appstudio.openshift.io/application: cluster-power-manager-5-1
     appstudio.openshift.io/component: cluster-power-manager-controller-5-1
     pipelines.appstudio.openshift.io/type: build
   name: cluster-power-manager-controller-5-1-on-pull-request
