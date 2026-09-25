@@ -67,8 +67,8 @@ spec:
       value: ["latest"]
     - name: additional-labels
       value:
-        - name=openshift5/cluster-power-manager-node-agent-rhel9
-        - com.redhat.component=cluster-power-manager-node-agent-rhel9-container
+        - name=openshift5/cluster-power-manager-rhel9-node-agent
+        - com.redhat.component=cluster-power-manager-rhel9-node-agent-container
   pipelineRef:
     name: build-pipeline
   taskRunTemplate:

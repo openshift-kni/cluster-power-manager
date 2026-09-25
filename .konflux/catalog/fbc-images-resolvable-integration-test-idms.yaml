@@ -8,11 +8,11 @@ metadata:
 spec:
   imageDigestMirrors:
     - mirrors:
-        - registry.stage.redhat.io/openshift5/cluster-power-manager-rhel9-operator
-      source: registry.redhat.io/openshift5/cluster-power-manager-rhel9-operator
+        - registry.stage.redhat.io/openshift5/cluster-power-manager-rhel9-controller
+      source: registry.redhat.io/openshift5/cluster-power-manager-rhel9-controller
     - mirrors:
         - registry.stage.redhat.io/openshift5/cluster-power-manager-operator-bundle
       source: registry.redhat.io/openshift5/cluster-power-manager-operator-bundle
     - mirrors:
-        - registry.stage.redhat.io/openshift5/cluster-power-manager-node-agent-rhel9
-      source: registry.redhat.io/openshift5/cluster-power-manager-node-agent-rhel9
+        - registry.stage.redhat.io/openshift5/cluster-power-manager-rhel9-node-agent
+      source: registry.redhat.io/openshift5/cluster-power-manager-rhel9-node-agent
