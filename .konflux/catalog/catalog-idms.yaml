@@ -8,4 +8,4 @@ spec:
   imageDigestMirrors:
   - mirrors:
     - quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-operator-bundle-5-1
-    source: registry.redhat.io/openshift5/cluster-power-manager-operator-bundle
+    source: registry.redhat.io/openshift5-beta/cluster-power-manager-operator-bundle
