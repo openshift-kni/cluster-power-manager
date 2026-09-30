@@ -69,7 +69,7 @@ spec:
       value: []
     - name: additional-labels
       value:
-        - name=openshift5-beta/cluster-power-manager-operator-bundle
+        - name=openshift5-dev-preview-beta/cluster-power-manager-operator-bundle
         - com.redhat.component=cluster-power-manager-operator-bundle-container
   pipelineRef:
     name: build-pipeline
