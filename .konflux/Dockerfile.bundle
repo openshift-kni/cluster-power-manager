@@ -32,8 +32,8 @@ RUN $OVERLAY_PATH/konflux-bundle-overlay.sh  \
 # Override specific labels in metadata/annotations.yaml using yq (version from release.in.yaml)
 RUN CHANNEL_VERSION=$(yq -r '.variables.version | split(".") | .[0:2] | join(".")' $OVERLAY_PATH/release.in.yaml) && \
     export CHANNEL_VERSION && \
-    yq -i '.annotations["operators.operatorframework.io.bundle.channels.v1"] = "stable," + strenv(CHANNEL_VERSION)' $METADATA_PATH/annotations.yaml && \
-    yq -i '.annotations["operators.operatorframework.io.bundle.channel.default.v1"] = "stable"' $METADATA_PATH/annotations.yaml
+    yq -i '.annotations["operators.operatorframework.io.bundle.channels.v1"] = "dev-preview-stable,dev-preview-" + strenv(CHANNEL_VERSION)' $METADATA_PATH/annotations.yaml && \
+    yq -i '.annotations["operators.operatorframework.io.bundle.channel.default.v1"] = "dev-preview-stable"' $METADATA_PATH/annotations.yaml
 
 # From here downwards this should mostly match the non-konflux bundle, i.e., `bundle.Dockerfile`
 # However there are a few exceptions:
@@ -47,8 +47,8 @@ LABEL operators.operatorframework.io.bundle.mediatype.v1=registry+v1
 LABEL operators.operatorframework.io.bundle.manifests.v1=manifests/
 LABEL operators.operatorframework.io.bundle.metadata.v1=metadata/
 LABEL operators.operatorframework.io.bundle.package.v1=cluster-power-manager
-LABEL operators.operatorframework.io.bundle.channels.v1=stable,5.1
-LABEL operators.operatorframework.io.bundle.channel.default.v1=stable
+LABEL operators.operatorframework.io.bundle.channels.v1=dev-preview-stable,dev-preview-5.1
+LABEL operators.operatorframework.io.bundle.channel.default.v1=dev-preview-stable
 LABEL operators.operatorframework.io.metrics.builder=operator-sdk-v1.42.0
 LABEL operators.operatorframework.io.metrics.mediatype.v1=metrics+v1
 LABEL operators.operatorframework.io.metrics.project_layout=go.kubebuilder.io/v4
