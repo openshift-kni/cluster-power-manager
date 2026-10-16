@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=scratch
+ARG BASE_IMAGE=registry.fedoraproject.org/fedora-minimal:42
 ARG BUILDER_IMAGE=quay.io/projectquay/golang:1.26
 
 # Build the node agent binary
