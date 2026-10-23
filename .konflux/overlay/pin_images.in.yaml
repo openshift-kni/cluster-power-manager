@@ -1,0 +1,11 @@
+---
+# Manager
+- key: manager
+  source: quay.io/openshift-kni/cluster-power-manager-operator:5.1.0
+  target: quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-controller-5-1@sha256:3c63ea59d65f1bb70aa10029d12deea75631c7f159bc226b7ffa484f80f18d36
+#
+# Node Agent
+- key: node_agent
+  source: quay.io/openshift-kni/cluster-power-node-agent:5.1.0
+  target: quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-node-agent-5-1@sha256:e33d9ea74d1ac6b97e324ada1a47c25f81213863fe5f057d6cf79135d740d8e0
+#
