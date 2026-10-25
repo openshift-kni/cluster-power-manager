@@ -91,7 +91,7 @@ jobs:
           labels: org.opencontainers.image.description=${{ env.OPERATOR_DESCRIPTION }}
           annotations: org.opencontainers.image.description=${{ env.OPERATOR_DESCRIPTION }}
       - name: ${{ github.event_name == 'push' && 'Build and push operator image' || 'Build operator image' }}
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: build/Dockerfile
@@ -109,7 +109,7 @@ jobs:
           labels: org.opencontainers.image.description=${{ env.AGENT_DESCRIPTION }}
           annotations: org.opencontainers.image.description=${{ env.AGENT_DESCRIPTION }}
       - name: ${{ github.event_name == 'push' && 'Build and push agent image' || 'Build agent image' }}
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: build/Dockerfile.nodeagent
