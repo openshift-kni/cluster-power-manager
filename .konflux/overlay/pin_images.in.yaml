@@ -7,5 +7,5 @@
 # Node Agent
 - key: node_agent
   source: quay.io/openshift-kni/cluster-power-node-agent:5.1.0
-  target: quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-node-agent-5-1@sha256:efb6d408666f7df2af7742410ac69e2244e558c9a11fd4389da2d0bba58cc2c7
+  target: quay.io/redhat-user-workloads/telco-5g-tenant/cluster-power-manager-node-agent-5-1@sha256:9b18ab696bbc1779cfb1c7cfbcbf3c1ec85fc1b6ecdb729f0347beb81650e0b8
 #
