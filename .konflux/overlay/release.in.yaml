@@ -8,6 +8,7 @@ variables:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
+    operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift Platform Plus"]'
   # PLACEHOLDER_ variables will be substituted by ad-hoc overlay logic
   containerImage: PLACEHOLDER_CONTAINER_IMAGE
   description: |
