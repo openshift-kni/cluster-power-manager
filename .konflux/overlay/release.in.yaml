@@ -9,14 +9,14 @@ variables:
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
     operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift Platform Plus"]'
+    support: Red Hat
+    description: Configures CPU power and performance settings on OpenShift nodes to balance performance and power consumption.
   # PLACEHOLDER_ variables will be substituted by ad-hoc overlay logic
   containerImage: PLACEHOLDER_CONTAINER_IMAGE
   description: |
-      Cluster Power Manager for OpenShift
-      The Cluster Power Manager provides power management services for OpenShift
-      clusters, enabling fine-grained control over node power states.
+      The Cluster Power Manager for OpenShift is an Operator that configures CPU power and performance settings on OpenShift nodes, letting users optimize between performance and power consumption for performance-sensitive workloads.
 
-      You can find additional guidance in the upstream repository: https://github.com/openshift-kni/cluster-power-manager
+      For additional guidance, see the Cluster Power Manager repository: https://github.com/openshift-kni/cluster-power-manager
   display_name: "Cluster Power Manager"
   manager_version: "cluster-power-manager.v5.1.0"
   # min_kube_version should match ocp
