@@ -8,4 +8,14 @@ filters:
       - cluster-power-manager-approvers
     reviewers:
       - cluster-power-manager-reviewers
+  ".konflux/*":
+    approvers:
+      - konflux-approvers
+    reviewers:
+      - konflux-reviewers
+  ".tekton/*":
+    approvers:
+      - konflux-approvers
+    reviewers:
+      - konflux-reviewers
 subcomponent: "Cluster Power Manager"
