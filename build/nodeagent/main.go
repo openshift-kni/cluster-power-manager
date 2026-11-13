@@ -22,16 +22,21 @@ import (
 	"os"
 
 	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	powerv1alpha1 "github.com/cluster-power-manager/cluster-power-manager/api/v1alpha1"
 	"github.com/cluster-power-manager/cluster-power-manager/internal/scaling"
+	"github.com/cluster-power-manager/cluster-power-manager/internal/transform"
 	"github.com/cluster-power-manager/cluster-power-manager/pkg/podresourcesclient"
 
 	"github.com/cluster-power-manager/cluster-power-manager/controllers"
@@ -67,11 +72,35 @@ func main() {
 		zap.UseFlagOptions(&logOpts),
 	),
 	)
-	nodeName := os.Getenv("NODE_NAME")
+	nodeName := os.Getenv(controllers.NodeNameEnv)
+	if nodeName == "" {
+		setupLog.Error(controllers.ErrNodeNameNotSet, "unable to configure node-scoped cache")
+		os.Exit(1)
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:  scheme,
 		Metrics: server.Options{BindAddress: metricsAddr},
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Pod{}: {
+					Field: fields.OneTermEqualSelector("spec.nodeName", nodeName),
+					// Transform each cached pod down to only the fields the PowerPod
+					// path reads; this also drops managedFields.
+					Transform: transform.TransformPodForAgentCache,
+				},
+				&corev1.Node{}: {
+					Field:     fields.OneTermEqualSelector("metadata.name", nodeName),
+					Transform: cache.TransformStripManagedFields(),
+				},
+				&powerv1alpha1.PowerNodeState{}: {
+					Namespaces: map[string]cache.Config{
+						controllers.PowerNamespace: {},
+					},
+					Field: fields.OneTermEqualSelector("metadata.name", controllers.PowerNodeStateName(nodeName)),
+				},
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -118,7 +147,7 @@ func main() {
 	)
 	defer dpdkClient.Close()
 
-	cpuScalingMgr := scaling.NewCPUScalingManager(&powerLibrary, dpdkClient)
+	cpuScalingMgr := scaling.NewCPUScalingManager(&powerLibrary, dpdkClient, nodeName)
 	if err = mgr.Add(cpuScalingMgr); err != nil {
 		setupLog.Error(err, "unable to register runnable", "runnable", "CPUScalingManager")
 		//nolint:gocritic // exitAfterDefer: os.Exit calls before mgr.Start() here are during setup/registration, no DPDK connections exist yet,
@@ -131,6 +160,7 @@ func main() {
 		Log:          ctrl.Log.WithName("controllers").WithName("PowerProfile"),
 		Scheme:       mgr.GetScheme(),
 		PowerLibrary: powerLibrary,
+		NodeName:     nodeName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PowerProfile")
 		os.Exit(1)
@@ -140,6 +170,7 @@ func main() {
 		Log:          ctrl.Log.WithName("controllers").WithName("PowerNodeConfig"),
 		Scheme:       mgr.GetScheme(),
 		PowerLibrary: powerLibrary,
+		NodeName:     nodeName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PowerNodeConfig")
 		os.Exit(1)
@@ -153,6 +184,7 @@ func main() {
 		PowerLibrary:        powerLibrary,
 		DPDKTelemetryClient: dpdkClient,
 		CPUScalingManager:   cpuScalingMgr,
+		NodeName:            nodeName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PowerPod")
 		os.Exit(1)
@@ -162,6 +194,7 @@ func main() {
 		Log:          ctrl.Log.WithName("controllers").WithName("Uncore"),
 		Scheme:       mgr.GetScheme(),
 		PowerLibrary: powerLibrary,
+		NodeName:     nodeName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Uncore")
 		os.Exit(1)

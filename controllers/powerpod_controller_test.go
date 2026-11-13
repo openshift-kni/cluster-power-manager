@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	powerv1alpha1 "github.com/cluster-power-manager/cluster-power-manager/api/v1alpha1"
 	"github.com/cluster-power-manager/cluster-power-manager/internal/power"
 	"github.com/cluster-power-manager/cluster-power-manager/internal/scaling"
+	"github.com/cluster-power-manager/cluster-power-manager/internal/transform"
 	"github.com/cluster-power-manager/cluster-power-manager/pkg/podresourcesclient"
 	"github.com/cluster-power-manager/cluster-power-manager/pkg/podstate"
 	"github.com/go-logr/logr"
@@ -96,9 +98,21 @@ func createPodReconcilerObject(objs []runtime.Object, podResourcesClient *podres
 		return nil, err
 	}
 
+	// The fake client stores objects as given, so transform Pods here to match
+	// the informer cache the reconciler reads from in production.
+	cachedObjs := make([]runtime.Object, len(objs))
+	for i, obj := range objs {
+		cachedObjs[i] = obj
+		pod, ok := obj.(*corev1.Pod)
+		if !ok {
+			continue
+		}
+		cachedObjs[i] = transform.TransformPodForAgent(pod)
+	}
+
 	// create a fake client to mock API calls.
 	cl := fake.NewClientBuilder().
-		WithRuntimeObjects(objs...).
+		WithRuntimeObjects(cachedObjs...).
 		WithStatusSubresource(&powerv1alpha1.PowerNodeState{}).
 		Build()
 	state, err := podstate.NewState()
@@ -135,6 +149,7 @@ func createPodReconcilerObject(objs []runtime.Object, podResourcesClient *podres
 		State:              state,
 		PodResourcesClient: *podResourcesClient,
 		PowerLibrary:       mockPowerLibrary,
+		NodeName:           os.Getenv(NodeNameEnv),
 	}
 
 	return r, nil
@@ -1962,7 +1977,7 @@ func TestPowerPod_ValidateProfileNodeSelectorMatching(t *testing.T) {
 }
 
 func TestPowerReleventPodPredicate(t *testing.T) {
-	t.Setenv("NODE_NAME", "TestNode")
+	nodeName := "TestNode"
 
 	makePod := func(ns, node string, initReqs,
 		reqs map[corev1.ResourceName]resource.Quantity,
@@ -2065,7 +2080,7 @@ func TestPowerReleventPodPredicate(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := PowerReleventPodPredicate(tc.obj)
+			got := PowerReleventPodPredicate(nodeName, tc.obj)
 			if got != tc.want {
 				t.Fatalf("PowerReleventPodPredicate() = %v, want %v", got, tc.want)
 			}
@@ -2128,7 +2143,7 @@ func TestPowerPod_RestartRace_SharedPoolNotReady(t *testing.T) {
 		},
 	}
 
-	objs := []runtime.Object{pod, defaultProfile, powerNodeState}
+	objs := []runtime.Object{transform.TransformPodForAgent(pod), defaultProfile, powerNodeState}
 	podResourcesClient := createFakePodResourcesListerClient(fakePodResources)
 
 	// Custom reconciler setup — we need to control the shared pool state
@@ -2164,6 +2179,7 @@ func TestPowerPod_RestartRace_SharedPoolNotReady(t *testing.T) {
 		State:              state,
 		PodResourcesClient: *podResourcesClient,
 		PowerLibrary:       mockPowerLibrary,
+		NodeName:           nodeName,
 	}
 
 	req := reconcile.Request{
@@ -2255,12 +2271,14 @@ func TestPowerPod_generateCPUScalingOpts(t *testing.T) {
 	minFreq := uint(1000000)
 	maxFreq := uint(3700000)
 
-	// Build a CPUList with mock CPUs 0, 1, 2.
+	// Build a CPUList with mock CPUs 0, 1, 2. CPUs 0 and 1 are HT siblings.
+	siblings := map[uint][]uint{0: {1}, 1: {0}, 2: nil}
 	cpuList := make(power.CPUList, 3)
 	for i, id := range []uint{0, 1, 2} {
 		cpu := new(coreMock)
 		cpu.On("GetID").Return(id)
 		cpu.On("GetAbsMinMax").Return(minFreq, maxFreq)
+		cpu.On("GetSiblings").Return(siblings[id])
 		cpuList[i] = cpu
 	}
 
@@ -2272,6 +2290,7 @@ func TestPowerPod_generateCPUScalingOpts(t *testing.T) {
 		AllowedUsageDifference:     intPtr(5),
 		AllowedFrequencyDifference: intPtr(25),
 		FallbackFreqPercent:        intPtr(50),
+		AppFreqPercent:             intPtr(100),
 		ScalePercentage:            intPtr(100),
 	}
 
@@ -2333,6 +2352,8 @@ func TestPowerPod_generateCPUScalingOpts(t *testing.T) {
 
 				expectedFallback := minFreq + (maxFreq-minFreq)*50/100
 				assert.Equal(t, int(expectedFallback), o.FallbackFreq)
+				assert.Equal(t, int(maxFreq), o.AppFreq)
+				assert.Equal(t, siblings[o.CPU.GetID()], o.SiblingCPUIDs)
 			}
 		})
 	}
@@ -2390,6 +2411,7 @@ func TestPowerPod_Reconcile_WithCPUScalingPolicy(t *testing.T) {
 				AllowedUsageDifference:     intPtr(tc.usageDiff),
 				AllowedFrequencyDifference: intPtr(tc.freqDiff),
 				FallbackFreqPercent:        intPtr(tc.fallbackPct),
+				AppFreqPercent:             intPtr(100),
 				ScalePercentage:            intPtr(tc.scalePct),
 			}
 			profile := &powerv1alpha1.PowerProfile{
@@ -2531,6 +2553,7 @@ func TestPowerPod_Reconcile_MultipleDPDKContainersRejected(t *testing.T) {
 		AllowedUsageDifference:     intPtr(5),
 		AllowedFrequencyDifference: intPtr(25),
 		FallbackFreqPercent:        intPtr(50),
+		AppFreqPercent:             intPtr(100),
 		ScalePercentage:            intPtr(100),
 	}
 	profile := &powerv1alpha1.PowerProfile{
