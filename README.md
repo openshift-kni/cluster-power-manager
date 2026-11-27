@@ -724,6 +724,10 @@ container assignments.
 The `PowerNodeState` status is updated via Server-Side Apply (SSA) by the PowerProfile, PowerPod, and PowerNodeConfig
 controllers, each owning their respective fields.
 
+If a container's `PowerProfile` becomes unavailable while its Pod is running (for example, the profile is deleted), the
+container stays listed under `cpuPools.exclusive` with its assigned `cpuIDs` and an `errors` entry, so those CPUs return
+to the shared pool when the Pod ends.
+
 **Example:**
 
 ```yaml
@@ -784,6 +788,27 @@ Optimization Library, and updates the `PowerNodeState` status.
 
 > **Note**: the request and the limits must have a matching number of cores and are also on a container-by-container basis.
 Currently the Cluster Power Manager supports multiple `PowerProfile` per Pod, but only one `PowerProfile` per container.
+
+> **Note**: a `PowerProfile` request is applied to app containers and to restartable init containers
+> (sidecar containers, which are init containers with `restartPolicy: Always`). A `PowerProfile` request on a regular
+> init container is not applied, because the kubelet PodResources API does not report CPUs for those containers. Such a
+> container is still listed under `cpuPools.exclusive` for the Pod in `PowerNodeState`, with no `cpuIDs` and an entry in
+> `errors`; it does not cause the Pod to be retried and does not block the Pod's other containers. For example, this
+> sidecar requests the `performance` profile:
+
+```yaml
+spec:
+  initContainers:
+  - name: sidecar
+    restartPolicy: Always
+    resources:
+      requests:
+        cpu: 1
+        power.cluster-power-manager.github.io/performance: 1
+      limits:
+        cpu: 1
+        power.cluster-power-manager.github.io/performance: 1
+```
 
 ### Uncore Frequency - only applicable to Intel CPUs
 
