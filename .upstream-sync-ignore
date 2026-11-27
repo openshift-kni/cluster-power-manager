@@ -5,9 +5,10 @@
 .github/workflows/ci.yaml
 .github/workflows/bundle-check.yaml
 
-# Downstream sync and repository governance files.
+# Downstream sync, repository governance, and code review tooling files.
 .upstream-sync-ignore
 hack/upstream-sync.sh
 hack/upstream-sync_test.sh
 OWNERS
 OWNERS_ALIASES
+.coderabbit.yaml

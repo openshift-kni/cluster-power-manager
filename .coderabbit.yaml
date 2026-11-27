@@ -1,0 +1,5 @@
+# Inherit the CodeRabbit configuration from the openshift-kni organization.
+inheritance: true
+reviews:
+  path_filters:
+    - "!vendor/**"
